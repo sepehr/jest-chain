@@ -1,13 +1,29 @@
+class JestAssertionError extends Error {
+  constructor(result, callsite) {
+    super(result.message());
+    this.matcherResult = result;
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, callsite);
+    }
+  }
+}
+
 const chainMatchers = (matchers, originalMatchers = matchers) => {
   return Object.keys(matchers).reduce((acc, name) => {
     const matcher = matchers[name];
     if (typeof matcher === 'function') {
-      return {
-        ...acc,
-        [name]: (...args) => {
+      const newMatcher = (...args) => {
+        try {
           matcher(...args); // run matcher
           return chainMatchers(originalMatchers); // chain the original matchers again
+        } catch (error) {
+          throw new JestAssertionError(error.matcherResult, newMatcher);
         }
+      };
+      return {
+        ...acc,
+        [name]: newMatcher
       };
     }
     return {
